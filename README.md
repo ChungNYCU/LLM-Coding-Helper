@@ -21,12 +21,12 @@ Hard to find O(n) solution in your Virtual Onsite Interview? Try this, avoid cop
 ## Features
 
 ### 1. Screen shot
-![image](https://hackmd.io/_uploads/S1MAy4wDkx.png)
+![image](https://i.imgur.com/MHq6qIm.png)
 
 
 
 ### 2. Show answer to you
-![image](https://hackmd.io/_uploads/B1KygVvPke.png)
+![image](https://i.imgur.com/ZhlrkbZ.png)
 
 
 
