@@ -247,20 +247,24 @@ class ScreenMonitorTool:
 
     def analyze_image(self, image_bytes):
         """
-        Analyzes the given image using OpenAI's API to solve the coding question present in the image.
+        Analyzes the provided image by sending it to the OpenAI API to solve the coding question contained in the image.
 
-        The analysis follows these steps:
-            1. Ask clarifying questions.
-            2. Explain thoughts, including question type (binary search, BFS, DP, etc.).
-            3. Provide implementation in Python using best practices.
-            4. Include test cases.
-            5. Provide explanation and time/space complexity.
+        The function follows these steps:
+        1. Shows a loading message.
+        2. Encodes the image in base64 format.
+        3. Constructs a prompt instructing the model to solve the coding problem by following a series of steps,
+        including clarifying questions, explaining the thought process, providing a Python implementation with 
+        efficient algorithm recommendations, including test cases, and summarizing the time and space complexity.
+        4. Sends the prompt along with the image to the OpenAI API.
+        5. Measures the API call duration and extracts the total token usage from the response.
+        6. Returns the response content along with API execution time and token usage information.
 
         Args:
-            image_bytes (BytesIO): The image data in memory.
+            image_bytes (BytesIO): The in-memory bytes of the image to be analyzed.
 
         Returns:
-            str: The analysis result from OpenAI.
+            str: The analysis result including the response content from the API, API call duration, and token usage.
+                If an exception occurs, returns an error message.
         """
         try:
             self.show_loading("Analyzing the image, please wait...")
@@ -271,17 +275,26 @@ class ScreenMonitorTool:
             # Encode the image to base64
             base64_image = base64.b64encode(
                 image_bytes.getvalue()).decode("utf-8")
+
+            # Define the prompt for solving the coding problem in the image
             prompt = """
-            Can you solve the coding question in the image?
-            Please always follow these steps:
-            1. Ask clarifying questions
-            2. Explain your thoughts, include question type (binary search, BFS, DP, etc.).
-            3. Implementation in Python (Always use the best practice e.g. O(1), O(n), and avoid O(n^2), O(2^n), etc.)
-            4. Test cases
-            5. Explanation and Time/Space Complexity
+            You are a LeetCode coding problem solving master. 
+            Please solve the coding question shown in the image by following these steps:
+            1. Ask clarifying questions if any part of the problem is ambiguous.
+            2. Explain your thought process, including the problem type (e.g., binary search, BFS, DP, etc.).
+            3. Provide a complete Python implementation with clear comments. Use efficient algorithms (e.g., O(1) or O(n)) and avoid inefficient ones (e.g., O(n^2) or O(2^n)).
+            4. Include multiple test cases to validate your solution.
+            5. Summarize your solution with an explanation of its time and space complexity.
+
+            Please refer below examples for naming conventions:
+            - "l" and "r" for binary search boundaries.
+            - "curr" for current.
+            - "num" for number
+            - Always save the result to "res" variable if possible.
+            - Avoid overly verbose or LLM-like naming.
             """
 
-            # Create the message payload with text and image
+            # Build the message payload with text and the encoded image
             messages = [
                 {
                     "role": "user",
@@ -300,16 +313,33 @@ class ScreenMonitorTool:
                 }
             ]
 
+            # Record the start time for API call timing
+            start_time = time.time()
+
             # Send the request to OpenAI's chat completions API
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="o1",  # Adjust the model name as per your usage
                 messages=messages,
             )
 
-            # Extract and return the response content
+            # Calculate the elapsed time for the API call
+            elapsed_time = time.time() - start_time
+
+            # Access token usage information if available, else default to "N/A"
+            total_tokens = (
+                response.usage.total_tokens if hasattr(response, "usage") and response.usage is not None
+                else "N/A"
+            )
+
+            # Extract the response content from the API result
             response_content = response.choices[0].message.content.strip()
-            print(response_content)
-            return response_content
+
+            # Append API call duration and token usage information to the response content
+            analysis_result = (
+                f"{response_content}\n\nAPI call duration: {elapsed_time:.2f} seconds\nToken usage: {total_tokens}"
+            )
+            print(analysis_result)
+            return analysis_result
 
         except Exception as e:
             return f"Error: {e}"
@@ -320,5 +350,7 @@ class ScreenMonitorTool:
 # Main program execution
 if __name__ == "__main__":
     root = Tk()
+    root.attributes("-alpha", 0.8)
+    root.attributes("-topmost", True)
     tool = ScreenMonitorTool(root)
     root.mainloop()
