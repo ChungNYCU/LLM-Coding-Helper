@@ -7,20 +7,17 @@ import threading
 import time
 
 from tkinter import Tk, ttk, Label, Canvas, Toplevel, Button
-# Added: ScrolledText for scrollable text display
 from tkinter.scrolledtext import ScrolledText
 from pynput import keyboard
 
-
 # Initialize OpenAI API client using the API key from environment variables
-# Ensure your API key is set in the environment variables
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 
 class ScreenMonitorTool:
     """
     A tool for monitoring the screen, capturing screenshots, and analyzing image content using OpenAI's API.
-
+    
     Attributes:
         master (Tk): The main window of the application.
         label_info (Label): Label displaying instructions to the user.
@@ -29,17 +26,21 @@ class ScreenMonitorTool:
         capture_button (Button): Button to initiate screenshot capture.
         progress (ttk.Progressbar): Progress bar indicating ongoing processes.
         listener (keyboard.Listener): Listener for keyboard events.
+        conversation_history (list): Stores the conversation context from previous interactions.
     """
 
     def __init__(self, master):
         """
         Initializes the ScreenMonitorTool with the given master window.
-
+        
         Args:
             master (Tk): The main window of the application.
         """
         self.master = master
         self.master.title("Screen Monitor Tool")
+
+        # Initialize conversation history for follow-up context
+        self.conversation_history = []
 
         # Create GUI components
         self.label_info = Label(
@@ -50,7 +51,6 @@ class ScreenMonitorTool:
         self.output_label = Label(master, text="Output:")
         self.output_label.pack()
 
-        # Use ScrolledText to display responses, allowing scrolling for long content
         self.output_text_box = ScrolledText(
             master, wrap='word', width=100, height=50
         )
@@ -61,12 +61,10 @@ class ScreenMonitorTool:
         )
         self.capture_button.pack(pady=5)
 
-        # Add loading animation (progress bar), initially hidden
         self.progress = ttk.Progressbar(master, mode='indeterminate')
         self.progress.pack(pady=10)
         self.progress.pack_forget()
 
-        # Start keyboard listening
         self.start_listening()
 
     def start_listening(self):
@@ -82,9 +80,9 @@ class ScreenMonitorTool:
     def show_output_text(self, text):
         """
         Displays the given text in the output text box.
-
+        
         Clears previous text, inserts new text, and scrolls to the end.
-
+        
         Args:
             text (str): The text to display.
         """
@@ -95,13 +93,13 @@ class ScreenMonitorTool:
     def show_loading(self, message):
         """
         Displays a loading message and shows the progress bar.
-
+        
         Args:
             message (str): The loading message to display.
         """
         self.show_output_text(message)
         self.progress.pack(pady=10)
-        self.progress.start(10)  # Progress bar updates every 10ms
+        self.progress.start(10)
 
     def hide_loading(self):
         """
@@ -114,9 +112,9 @@ class ScreenMonitorTool:
     def on_key_press(self, key):
         """
         Handles key press events.
-
+        
         If the Page Up key is pressed, initiates screenshot selection.
-
+        
         Args:
             key (keyboard.Key): The key that was pressed.
         """
@@ -124,7 +122,6 @@ class ScreenMonitorTool:
             if key == keyboard.Key.page_up:
                 self.initiate_selection()
         except AttributeError:
-            # Ignore other keys
             pass
 
     def initiate_selection(self):
@@ -134,13 +131,10 @@ class ScreenMonitorTool:
         self.show_output_text("Please select the screenshot area...")
         self.selection_window = Toplevel(self.master)
         self.selection_window.attributes("-fullscreen", True)
-        self.selection_window.attributes(
-            "-alpha", 0.3)  # Set window transparency
+        self.selection_window.attributes("-alpha", 0.3)
         self.selection_window.configure(bg="black")
 
-        self.canvas = Canvas(
-            self.selection_window, cursor="cross", bg="gray"
-        )
+        self.canvas = Canvas(self.selection_window, cursor="cross", bg="gray")
         self.canvas.pack(fill="both", expand=True)
 
         self.start_x = self.start_y = self.rect_id = None
@@ -156,7 +150,7 @@ class ScreenMonitorTool:
     def cancel_selection(self, event=None):
         """
         Cancels the screenshot selection, closes the selection window, and updates the output text.
-
+        
         Args:
             event (tkinter.Event, optional): The event that triggered the cancellation.
         """
@@ -167,7 +161,7 @@ class ScreenMonitorTool:
     def on_mouse_down(self, event):
         """
         Handles the mouse button press event to start drawing the selection rectangle.
-
+        
         Args:
             event (tkinter.Event): The mouse event.
         """
@@ -180,17 +174,16 @@ class ScreenMonitorTool:
     def on_mouse_drag(self, event):
         """
         Updates the selection rectangle as the mouse is dragged.
-
+        
         Args:
             event (tkinter.Event): The mouse event.
         """
-        self.canvas.coords(self.rect_id, self.start_x,
-                           self.start_y, event.x, event.y)
+        self.canvas.coords(self.rect_id, self.start_x, self.start_y, event.x, event.y)
 
     def on_mouse_up(self, event):
         """
         Finalizes the selection rectangle upon mouse button release and initiates screenshot capture.
-
+        
         Args:
             event (tkinter.Event): The mouse event.
         """
@@ -209,12 +202,11 @@ class ScreenMonitorTool:
     def capture_and_process(self, region):
         """
         Displays a loading message and starts a new thread to capture and process the screenshot.
-
+        
         Args:
             region (tuple): The region of the screen to capture (x, y, width, height).
         """
         self.show_loading("Taking screenshot and analyzing image content...")
-        # Use a separate thread to avoid blocking the GUI
         thread = threading.Thread(
             target=self._capture_and_process_thread, args=(region,)
         )
@@ -223,7 +215,7 @@ class ScreenMonitorTool:
     def _capture_and_process_thread(self, region):
         """
         Captures the screenshot of the specified region and processes it using OpenAI's API.
-
+        
         Args:
             region (tuple): The region of the screen to capture (x, y, width, height).
         """
@@ -231,7 +223,6 @@ class ScreenMonitorTool:
             # Delay to avoid capturing the transparent selection window
             time.sleep(0.5)
             screenshot = pyautogui.screenshot(region=region)
-            # Save the screenshot to an in-memory BytesIO object instead of disk
             img_bytes = io.BytesIO()
             screenshot.save(img_bytes, format='PNG')
             img_bytes.seek(0)
@@ -248,23 +239,28 @@ class ScreenMonitorTool:
     def analyze_image(self, image_bytes):
         """
         Analyzes the provided image by sending it to the OpenAI API to solve the coding question contained in the image.
-
+        
+        This method preserves conversation context across multiple requests. The conversation history is
+        combined with the new request so that previous interactions are considered in the analysis.
+        
         The function follows these steps:
         1. Shows a loading message.
         2. Encodes the image in base64 format.
         3. Constructs a prompt instructing the model to solve the coding problem by following a series of steps,
-        including clarifying questions, explaining the thought process, providing a Python implementation with 
-        efficient algorithm recommendations, including test cases, and summarizing the time and space complexity.
-        4. Sends the prompt along with the image to the OpenAI API.
-        5. Measures the API call duration and extracts the total token usage from the response.
-        6. Returns the response content along with API execution time and token usage information.
-
+           including clarifying questions, explaining the thought process, providing a Python implementation with 
+           efficient algorithm recommendations, including test cases, and summarizing the time and space complexity.
+        4. Combines previous conversation history with the new user message (which includes the image).
+        5. Sends the combined messages to the OpenAI API.
+        6. Measures the API call duration and extracts the total token usage from the response.
+        7. Appends the new user message and the assistant's reply to the conversation history.
+        8. Returns the response content along with API execution time and token usage information.
+        
         Args:
             image_bytes (BytesIO): The in-memory bytes of the image to be analyzed.
-
+        
         Returns:
             str: The analysis result including the response content from the API, API call duration, and token usage.
-                If an exception occurs, returns an error message.
+                 If an exception occurs, returns an error message.
         """
         try:
             self.show_loading("Analyzing the image, please wait...")
@@ -273,8 +269,7 @@ class ScreenMonitorTool:
             client = openai.OpenAI()
 
             # Encode the image to base64
-            base64_image = base64.b64encode(
-                image_bytes.getvalue()).decode("utf-8")
+            base64_image = base64.b64encode(image_bytes.getvalue()).decode("utf-8")
 
             # Define the prompt for solving the coding problem in the image
             prompt = """
@@ -289,34 +284,35 @@ class ScreenMonitorTool:
             Please refer below examples for naming conventions:
             - "l" and "r" for binary search boundaries.
             - "curr" for current.
-            - "num" for number
+            - "num" for number.
             - Always save the result to "res" variable if possible.
             - Avoid overly verbose or LLM-like naming.
             """
 
-            # Build the message payload with text and the encoded image
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt,
+            # Build new user message with text and the encoded image
+            new_message = {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
                         },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            },
-                        },
-                    ],
-                }
-            ]
+                    },
+                ],
+            }
+
+            # Combine previous conversation history with the new message
+            messages = self.conversation_history + [new_message]
 
             # Record the start time for API call timing
             start_time = time.time()
 
-            # Send the request to OpenAI's chat completions API
+            # Send the request to OpenAI's chat completions API with the conversation context
             response = client.chat.completions.create(
                 model="o1",  # Adjust the model name as per your usage
                 messages=messages,
@@ -339,6 +335,21 @@ class ScreenMonitorTool:
                 f"{response_content}\n\nAPI call duration: {elapsed_time:.2f} seconds\nToken usage: {total_tokens}"
             )
             print(analysis_result)
+
+            # Append the new user message and assistant's reply to the conversation history for follow-up context
+            self.conversation_history.extend([
+                new_message,
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": response_content,
+                        }
+                    ],
+                }
+            ])
+
             return analysis_result
 
         except Exception as e:
